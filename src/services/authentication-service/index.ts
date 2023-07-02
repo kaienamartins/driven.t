@@ -21,14 +21,16 @@ async function signIn(params: SignInParams): Promise<SignInResult> {
   };
 }
 
-async function getUserOrFail(email: string): Promise<GetUserOrFailResult> {
+async function getUserOrFail(email: string): Promise<User> {
   const user = await userRepository.findByEmail(email, { id: true, email: true, password: true });
-  if (!user) throw invalidCredentialsError();
+  if (!user) {
+    throw invalidCredentialsError();
+  }
 
   return user;
 }
 
-async function createSession(userId: number) {
+async function createSession(userId: number): Promise<string> {
   const token = jwt.sign({ userId }, process.env.JWT_SECRET);
   await sessionRepository.create({
     token,
@@ -38,9 +40,11 @@ async function createSession(userId: number) {
   return token;
 }
 
-async function validatePasswordOrFail(password: string, userPassword: string) {
+async function validatePasswordOrFail(password: string, userPassword: string): Promise<void> {
   const isPasswordValid = await bcrypt.compare(password, userPassword);
-  if (!isPasswordValid) throw invalidCredentialsError();
+  if (!isPasswordValid) {
+    throw invalidCredentialsError();
+  }
 }
 
 export type SignInParams = Pick<User, 'email' | 'password'>;
@@ -50,7 +54,7 @@ type SignInResult = {
   token: string;
 };
 
-type GetUserOrFailResult = Pick<User, 'id' | 'email' | 'password'>;
+//type GetUserOrFailResult = Pick<User, 'id' | 'email' | 'password'>;
 
 const authenticationService = {
   signIn,
