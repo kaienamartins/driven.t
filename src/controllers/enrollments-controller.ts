@@ -29,10 +29,29 @@ export async function postCreateOrUpdateEnrollment(req: AuthenticatedRequest, re
 }
 
 // TODO - Receber o CEP do usuário por query params.
+
 export async function getAddressFromCEP(req: AuthenticatedRequest, res: Response) {
+  const { cep } = req.query;
+  if (!cep || typeof cep !== 'string' || cep.trim() === '') {
+    return res.sendStatus(httpStatus.BAD_REQUEST);
+  }
+
   try {
-    const address = await enrollmentsService.getAddressFromCEP();
-    res.status(httpStatus.OK).send(address);
+    const address = await enrollmentsService.getAddressFromCEP(cep);
+
+    if (!address) {
+      return res.sendStatus(httpStatus.NO_CONTENT);
+    }
+
+    const formattedAddress = {
+      logradouro: address.logradouro,
+      complemento: address.complemento,
+      bairro: address.bairro,
+      cidade: address.localidade,
+      uf: address.uf,
+    };
+
+    res.status(httpStatus.OK).json(formattedAddress);
   } catch (error) {
     if (error.name === 'NotFoundError') {
       return res.send(httpStatus.NO_CONTENT);
