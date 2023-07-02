@@ -1,5 +1,6 @@
 import { Address, Enrollment } from '@prisma/client';
 import { Response } from 'express';
+import httpStatus from 'http-status';
 import { request } from '@/utils/request';
 import { invalidDataError, notFoundError } from '@/errors';
 import addressRepository, { CreateAddressParams } from '@/repositories/address-repository';
@@ -66,10 +67,10 @@ async function createOrUpdateEnrollmentWithAddress(params: CreateOrUpdateEnrollm
 
     await addressRepository.upsert(newEnrollment.id, address, address);
 
-    return res.status(200).send({ message: 'Enrollment created or updated successfully' });
+    return res.status(httpStatus.CREATED);
   } catch (error) {
     console.error(error);
-    return res.status(400).send({ error: error.message });
+    return res.status(httpStatus.BAD_REQUEST).send(invalidDataError);
   }
 }
 
