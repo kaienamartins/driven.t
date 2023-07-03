@@ -2,7 +2,7 @@ import { Address, Enrollment } from '@prisma/client';
 import { Response } from 'express';
 import httpStatus from 'http-status';
 import { request } from '@/utils/request';
-import { invalidDataError, notFoundError, requestError } from '@/errors';
+import { invalidDataError, notFoundError } from '@/errors';
 import addressRepository, { CreateAddressParams } from '@/repositories/address-repository';
 import enrollmentRepository, { CreateEnrollmentParams } from '@/repositories/enrollment-repository';
 import { exclude } from '@/utils/prisma-utils';
@@ -11,13 +11,7 @@ import { exclude } from '@/utils/prisma-utils';
 async function getAddressFromCEP(cep: string) {
   const result = await request.get(`${process.env.VIA_CEP_API}/${cep}/json/`);
 
-  if (result.status == 400) {
-    throw requestError(result.status, result.statusText);
-  }
-
   if (!result.data) {
-    throw notFoundError();
-  } else if ('erro' in result.data) {
     throw notFoundError();
   }
 
@@ -62,16 +56,11 @@ async function createOrUpdateEnrollmentWithAddress(params: CreateOrUpdateEnrollm
   const address = getAddressForUpsert(params.address);
 
   try {
-    const response = await request.get(`${process.env.VIA_CEP_API}/${address.cep}/json/`);
-
-    if (response.status == 400) {
-      throw requestError(response.status, response.statusText);
-    }
-
+    const response = await getAddressFromCEP(address.cep);
     if (!response) {
-      throw notFoundError();
+      throw new Error('CEP inválido');
     } else if ('erro' in response) {
-      throw notFoundError();
+      throw new Error('CEP não encontrado');
     }
 
     const newEnrollment = await enrollmentRepository.upsert(params.userId, enrollment, exclude(enrollment, 'userId'));
