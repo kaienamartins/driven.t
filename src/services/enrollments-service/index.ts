@@ -1,6 +1,4 @@
 import { Address, Enrollment } from '@prisma/client';
-import { Response } from 'express';
-import httpStatus from 'http-status';
 import { request } from '@/utils/request';
 import { invalidDataError, notFoundError } from '@/errors';
 import addressRepository, { CreateAddressParams } from '@/repositories/address-repository';
@@ -11,7 +9,7 @@ import { exclude } from '@/utils/prisma-utils';
 async function getAddressFromCEP(cep: string) {
   const result = await request.get(`${process.env.VIA_CEP_API}/${cep}/json/`);
 
-  if (!result.data) {
+  if (result.status !== 200 || result.data.erro) {
     throw notFoundError();
   }
 
@@ -51,27 +49,17 @@ function getFirstAddress(firstAddress: Address): GetAddressResult {
 
 type GetAddressResult = Omit<Address, 'createdAt' | 'updatedAt' | 'enrollmentId'>;
 
-async function createOrUpdateEnrollmentWithAddress(params: CreateOrUpdateEnrollmentWithAddress, res: Response) {
+async function createOrUpdateEnrollmentWithAddress(params: CreateOrUpdateEnrollmentWithAddress) {
   const enrollment = exclude(params, 'address');
   const address = getAddressForUpsert(params.address);
 
-  try {
-    const response = await getAddressFromCEP(address.cep);
-    if (!response) {
-      throw new Error('CEP inválido');
-    } else if ('erro' in response) {
-      throw new Error('CEP não encontrado');
-    }
+  const result = await request.get(`${process.env.VIA_CEP_API}/${address.cep}/json/`);
 
-    const newEnrollment = await enrollmentRepository.upsert(params.userId, enrollment, exclude(enrollment, 'userId'));
+  if (result.data.erro === true) throw notFoundError();
 
-    await addressRepository.upsert(newEnrollment.id, address, address);
+  const newEnrollment = await enrollmentRepository.upsert(params.userId, enrollment, exclude(enrollment, 'userId'));
 
-    return res.status(httpStatus.CREATED);
-  } catch (error) {
-    console.error(error);
-    return res.status(httpStatus.BAD_REQUEST).send(invalidDataError);
-  }
+  await addressRepository.upsert(newEnrollment.id, address, address);
 }
 
 function getAddressForUpsert(address: CreateAddressParams) {
